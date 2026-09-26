@@ -156,6 +156,7 @@
       <select id="engine">
         <option value="auto" selected>Auto (GPU if available)</option>
         <option value="webgpu">GPU · WebGPU (fast)</option>
+        <option value="custom">Custom · our own tiny AI (~4 MB)</option>
         <option value="cpu">CPU · on-device AI</option>
       </select>
     </div>
@@ -212,6 +213,7 @@
 <script>
 let jobId = null, pollTimer = null, serverStatus = null;
 let gpuEngine = null;   // lazily created SDTurboWebGPU
+let ownEngine = null;   // lazily created LocalTinyModel
 
 const SHOTS = [
   "wide establishing shot",
@@ -231,6 +233,7 @@ async function loadStatus() {
     const b = $('modeBadge');
     const gpuOK = serverStatus.webgpu_files && !!navigator.gpu;
     if (gpuOK) { b.textContent = 'GPU ready · SD-Turbo'; b.className = 'badge'; }
+    else if (serverStatus.custom_files) { b.textContent = 'own model ready · tiny AI'; b.className = 'badge'; }
     else if (serverStatus.ai_mode) { b.textContent = 'CPU ready · ' + serverStatus.model; b.className = 'badge'; }
     else if (!serverStatus.sd_bin) { b.textContent = 'demo mode · engine not built'; b.className='badge demo'; }
     else { b.textContent = 'demo mode · no AI model yet'; b.className = 'badge demo'; }
@@ -241,6 +244,10 @@ async function loadStatus() {
     }
     if (!serverStatus.webgpu_files) {
       eng.querySelector('[value=webgpu]').textContent = 'GPU · not downloaded (re-run setup)';
+    }
+    eng.querySelector('[value=custom]').disabled = !serverStatus.custom_files;
+    if (!serverStatus.custom_files) {
+      eng.querySelector('[value=custom]').textContent = 'Custom · not downloaded (re-run setup)';
     }
   } catch (e) {
     $('modeBadge').textContent = 'server offline';
@@ -295,6 +302,9 @@ async function generate() {
     if (d.engine === 'webgpu') {
       await runWebGPUJob(d.job_id);
     }
+    if (d.engine === 'custom') {
+      await runCustomJob(d.job_id);
+    }
     poll();
     pollTimer = setInterval(poll, 1500);
   } catch (e) {
@@ -342,6 +352,50 @@ async function runWebGPUJob(jid) {
     fail('GPU engine failed: ' + e + '\n\nTip: switch Engine to CPU or Auto, or update Chrome.');
     throw { handled: true }; // already reported - do not overwrite
   }
+}
+
+/* ---------------- custom (own tiny model) path ---------------- */
+async function runCustomJob(jid) {
+  const prompt = $('prompt').value.trim();
+  const frames = parseInt($('frames').value);
+  try {
+    await loadOrtScript();
+    if (!ownEngine) {
+      ownEngine = new LocalTinyModel();
+      await ownEngine.init(m => setStage('Own AI: ' + m));
+    }
+    for (let i = 0; i < frames; i++) {
+      setStage('Own AI: painting keyframe ' + (i + 1) + ' of ' + frames);
+      const canvas = await ownEngine.generate(
+        prompt, (Date.now() ^ (i * 2654435761)) >>> 0,
+        m => setStage('Own AI: ' + m));
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const up = await fetch('/api/upload_frame/' + jid, {
+        method: 'POST',
+        headers: { 'X-Frame-Index': String(i), 'Content-Type': 'image/png' },
+        body: blob,
+      });
+      if (!up.ok) throw new Error('upload failed (' + up.status + ')');
+      addThumb(URL.createObjectURL(blob));
+    }
+    setStage('Own AI done - rendering video…');
+  } catch (e) {
+    fetch('/api/abort/' + jid, { method: 'POST' }).catch(() => {});
+    clearInterval(pollTimer);
+    fail('Custom engine failed: ' + e + '\n\nTip: re-run setup to download the tiny model.');
+    throw { handled: true };
+  }
+}
+
+async function loadOrtScript() {
+  if (window.ort) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = '/webgpu/vendor/ort.webgpu.min.js';
+    s.onload = res;
+    s.onerror = () => rej(new Error('could not load onnxruntime-web (re-run setup)'));
+    document.head.appendChild(s);
+  });
 }
 
 function setStage(t) { $('stageTxt').textContent = t; }
