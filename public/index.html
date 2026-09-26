@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LocalAI Video Studio</title>
+<style>
+  :root {
+    --bg: #0b0e14; --card: #141925; --card2: #1b2233;
+    --text: #e8ecf4; --muted: #8b93a7; --accent: #7c5cff; --accent2: #00d4ff;
+    --ok: #2ecc71; --err: #ff5c7c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    padding: 16px 14px 90px; max-width: 720px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .logo {
+    width: 38px; height: 38px; border-radius: 11px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center; font-size: 19px;
+  }
+  h1 { font-size: 19px; font-weight: 700; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin: 2px 0 14px; }
+  .badge {
+    font-size: 11px; padding: 3px 9px; border-radius: 99px; font-weight: 600;
+    background: rgba(124,92,255,.15); color: #b9a5ff; border: 1px solid rgba(124,92,255,.4);
+  }
+  .badge.demo { background: rgba(255,193,7,.12); color: #ffd166; border-color: rgba(255,193,7,.4); }
+  .badge.err  { background: rgba(255,92,124,.12); color: var(--err); border-color: rgba(255,92,124,.4); }
+
+  .card {
+    background: var(--card); border: 1px solid #232c42; border-radius: 16px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 0 0 6px 2px; font-weight: 600; }
+  textarea, input[type=text], select {
+    width: 100%; background: var(--card2); color: var(--text);
+    border: 1px solid #2a3450; border-radius: 12px; padding: 13px 14px;
+    font-size: 15.5px; font-family: inherit; outline: none; resize: vertical;
+  }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  textarea { min-height: 84px; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+
+  .slider-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; }
+  .val { color: var(--accent2); font-weight: 700; font-size: 13.5px; }
+  input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); height: 26px; }
+
+  .btn {
+    width: 100%; margin-top: 18px; padding: 16px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; font-size: 17px; font-weight: 700; cursor: pointer;
+  }
+  .btn:disabled { opacity: .45; }
+  .btn.small { width: auto; padding: 9px 16px; font-size: 13.5px; margin-top: 0; }
+
+  #progressWrap { display: none; }
+  .stage { font-size: 14px; margin-bottom: 10px; }
+  .stage .spin {
+    display: inline-block; width: 13px; height: 13px; border-radius: 50%;
+    border: 2px solid var(--accent); border-top-color: transparent; margin-right: 8px;
+    animation: spin 0.8s linear infinite; vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .bar { height: 10px; background: var(--card2); border-radius: 99px; overflow: hidden; }
+  .bar > div {
+    height: 100%; width: 0%; border-radius: 99px; transition: width .8s ease;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .thumbs { display: flex; gap: 8px; overflow-x: auto; margin-top: 12px; padding-bottom: 4px; }
+  .thumbs img {
+    height: 72px; border-radius: 9px; border: 1px solid #2a3450; flex: none;
+  }
+  .errbox {
+    background: rgba(255,92,124,.08); border: 1px solid rgba(255,92,124,.35);
+    color: #ffb3c2; border-radius: 12px; padding: 12px 14px; font-size: 13px;
+    white-space: pre-wrap; word-break: break-word; margin-top: 12px;
+  }
+
+  #resultWrap { display: none; }
+  video {
+    width: 100%; border-radius: 14px; background: #000; margin-top: 4px;
+    aspect-ratio: 1; max-height: 70vh;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 12px; }
+  .actions a {
+    flex: 1; text-align: center; padding: 13px; border-radius: 12px;
+    background: var(--card2); color: var(--text); font-weight: 600;
+    text-decoration: none; font-size: 14.5px; border: 1px solid #2a3450;
+  }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.55; margin-top: 10px; }
+
+  .gitem {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 4px; border-bottom: 1px solid #202940; font-size: 14px;
+  }
+  .gitem a { color: var(--accent2); text-decoration: none; font-weight: 600; }
+  .gitem .meta { color: var(--muted); font-size: 12px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13.5px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎬</div>
+  <div style="flex:1">
+    <h1>LocalAI Video Studio</h1>
+  </div>
+  <span class="badge" id="modeBadge">checking…</span>
+</header>
+<p class="sub">100% offline text-to-video · runs on your phone · no limits, no accounts, no internet needed</p>
+
+<div class="card">
+  <label for="prompt">Describe your video</label>
+  <textarea id="prompt" placeholder="e.g. a peaceful waterfall in a magical forest, fireflies at dusk, cinematic"></textarea>
+
+  <div class="slider-row">
+    <label style="margin:0">Scenes (AI images)</label><span class="val" id="framesVal">4</span>
+  </div>
+  <input type="range" id="frames" min="1" max="8" value="4">
+
+  <div class="slider-row">
+    <label style="margin:0">Seconds per scene</label><span class="val" id="secVal">3.5s</span>
+  </div>
+  <input type="range" id="sec" min="1.5" max="6" step="0.5" value="3.5">
+
+  <div class="row" style="margin-top:14px">
+    <div>
+      <label for="res">Resolution</label>
+      <select id="res">
+        <option value="320">320 × 320 (fastest)</option>
+        <option value="384" selected>384 × 384 (recommended)</option>
+        <option value="448">448 × 448</option>
+        <option value="512">512 × 512 (slowest)</option>
+      </select>
+    </div>
+    <div>
+      <label for="motion">Camera motion</label>
+      <select id="motion">
+        <option value="auto" selected>Auto (mixed)</option>
+        <option value="zoom_in">Zoom in</option>
+        <option value="zoom_out">Zoom out</option>
+        <option value="pan_right">Pan right</option>
+        <option value="pan_left">Pan left</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="slider-row">
+    <label style="margin:0">Scene variety (changes the shot each scene)</label>
+    <span class="val" id="evoVal">on</span>
+  </div>
+  <input type="range" id="evo" min="0" max="1" step="1" value="1">
+
+  <button class="btn" id="goBtn">✨ Generate Video</button>
+</div>
+
+<div class="card" id="progressWrap">
+  <div class="stage"><span class="spin"></span><span id="stageTxt">starting…</span></div>
+  <div class="bar"><div id="barFill"></div></div>
+  <div class="thumbs" id="thumbs"></div>
+  <div class="errbox" id="errBox" style="display:none"></div>
+</div>
+
+<div class="card" id="resultWrap">
+  <label>Your video</label>
+  <video id="video" controls playsinline></video>
+  <div class="actions">
+    <a id="dlLink" download="ai-video.mp4" href="#">⬇ Download MP4</a>
+    <a href="#" onclick="makeAnother();return false">🎬 Make another</a>
+  </div>
+</div>
+
+<div class="card">
+  <details>
+    <summary>📁 Saved videos</summary>
+    <div id="gallery" style="margin-top:8px"><span class="meta" style="color:var(--muted);font-size:13px">loading…</span></div>
+  </details>
+</div>
+
+<div class="card">
+  <details>
+    <summary>⚙ Advanced</summary>
+    <div style="margin-top:12px">
+      <label for="neg">Negative prompt (ignored by Turbo models)</label>
+      <input type="text" id="neg" value="blurry, low quality, watermark, text">
+      <p class="hint">On a low-end phone each AI image can take several minutes.
+      Start with 3–4 scenes at 320 or 384 resolution, keep the phone plugged in,
+      and stay on this page while it works.</p>
+    </div>
+  </details>
+</div>
+
+<script>
+let jobId = null, pollTimer = null;
+
+const $ = id => document.getElementById(id);
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const s = await r.json();
+    const b = $('modeBadge');
+    if (s.ai_mode) { b.textContent = 'AI ready · ' + s.model; b.className = 'badge'; }
+    else if (!s.sd_bin) { b.textContent = 'demo mode · engine not built'; b.className='badge demo'; }
+    else { b.textContent = 'demo mode · no AI model yet'; b.className = 'badge demo'; }
+  } catch (e) {
+    $('modeBadge').textContent = 'server offline';
+    $('modeBadge').className = 'badge err';
+  }
+}
+
+async function loadGallery() {
+  try {
+    const r = await fetch('/api/gallery');
+    const vids = await r.json();
+    $('gallery').innerHTML = vids.length
+      ? vids.map(v => `<div class="gitem"><div><b>${v.name}</b><div class="meta">${v.created} · ${v.size_mb} MB</div></div><a href="/api/video/${v.name}" download>save</a></div>`).join('')
+      : '<span style="color:var(--muted);font-size:13px">no videos yet</span>';
+  } catch (e) { $('gallery').innerHTML = ''; }
+}
+
+function sliders() {
+  $('framesVal').textContent = $('frames').value;
+  $('secVal').textContent = parseFloat($('sec').value) + 's';
+  $('evoVal').textContent = $('evo').value == 1 ? 'on' : 'off';
+}
+['frames','sec','evo'].forEach(id => $(id).addEventListener('input', sliders));
+
+async function generate() {
+  const prompt = $('prompt').value.trim();
+  if (!prompt) { $('prompt').focus(); $('prompt').placeholder = 'type something first!'; return; }
+  $('goBtn').disabled = true;
+  $('progressWrap').style.display = 'block';
+  $('resultWrap').style.display = 'none';
+  $('errBox').style.display = 'none';
+  $('thumbs').innerHTML = '';
+  $('barFill').style.width = '0%';
+  $('stageTxt').textContent = 'starting…';
+  try {
+    const r = await fetch('/api/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        prompt: prompt,
+        negative: $('neg').value,
+        frames: parseInt($('frames').value),
+        sec: parseFloat($('sec').value),
+        resolution: parseInt($('res').value),
+        motion: $('motion').value,
+        evolution: $('evo').value == 1,
+      })
+    });
+    const d = await r.json();
+    if (!r.ok) { fail(d.error || 'could not start'); return; }
+    jobId = d.job_id;
+    poll();
+    pollTimer = setInterval(poll, 1500);
+  } catch (e) { fail('could not reach the server: ' + e); }
+}
+
+async function poll() {
+  if (!jobId) return;
+  try {
+    const r = await fetch('/api/job/' + jobId);
+    const j = await r.json();
+    $('barFill').style.width = j.progress + '%';
+    $('stageTxt').textContent = j.stage + ' · ' + Math.round(j.elapsed) + 's';
+    const t = $('thumbs');
+    if (j.thumbs.length > t.children.length) {
+      t.innerHTML = j.thumbs.map(u => `<img src="${u}?t=${Date.now()}">`).join('');
+    }
+    if (j.status === 'done') {
+      clearInterval(pollTimer);
+      $('progressWrap').style.display = 'none';
+      $('resultWrap').style.display = 'block';
+      $('video').src = j.video_url;
+      $('dlLink').href = j.video_url;
+      $('dlLink').setAttribute('download', jobId + '.mp4');
+      $('goBtn').disabled = false;
+      loadGallery();
+    } else if (j.status === 'error') {
+      clearInterval(pollTimer);
+      fail(j.error || 'generation failed');
+    }
+  } catch (e) { /* transient network hiccup, keep polling */ }
+}
+
+function fail(msg) {
+  clearInterval(pollTimer);
+  $('goBtn').disabled = false;
+  $('barFill').style.width = '100%';
+  $('barFill').parentElement.parentElement.querySelector('.stage').innerHTML = '❌ failed';
+  const eb = $('errBox');
+  eb.style.display = 'block';
+  eb.textContent = String(msg).slice(0, 900);
+}
+
+function makeAnother() {
+  $('resultWrap').style.display = 'none';
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+$('goBtn').addEventListener('click', generate);
+sliders(); loadStatus(); loadGallery();
+</script>
+</body>
+</html>
