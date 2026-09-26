@@ -1,10 +1,12 @@
-# local build artifacts
+# downloaded / generated artifacts (setup.sh creates these)
 models/
+webgpu/
 outputs/
 work/
 bin/
 stable-diffusion.cpp/
 server.log
+server_test.log
 test_*
 __pycache__/
 *.pyc
