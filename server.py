@@ -101,6 +101,11 @@ MODEL = find_model()
 TAESD = find_taesd()
 AI_MODE = bool(SD_BIN and MODEL)
 WEBGPU_FILES = find_webgpu_files()
+CUSTOM_FILES = all(os.path.isfile(p) for p in [
+    os.path.join(WEBGPU_DIR, "vendor", "ort.webgpu.min.js"),
+    os.path.join(WEBGPU_DIR, "models", "custom", "model.onnx"),
+    os.path.join(WEBGPU_DIR, "models", "custom", "labels.json"),
+])
 
 
 def model_profile(path):
@@ -388,11 +393,12 @@ def api_status():
         "model": os.path.basename(MODEL) if MODEL else None,
         "taesd": bool(TAESD),
         "webgpu_files": WEBGPU_FILES,
+        "custom_files": CUSTOM_FILES,
     })
 
 
 def webgpu_waiter_worker(job):
-    """Waits for the browser to upload GPU-generated keyframes, then renders."""
+    """Waits for the browser to upload AI-generated keyframes, then renders."""
     p = job["params"]
     jid = job["id"]
     job_dir = os.path.join(WORK_DIR, jid)
@@ -439,11 +445,15 @@ def api_generate():
     if params["resolution"] not in (320, 384, 448, 512):
         params["resolution"] = 384
     engine = data.get("engine", "auto")
-    # effective engine: webgpu needs both the assets and a GPU-capable browser
+    # effective engine: webgpu/custom need their browser assets installed
     if engine == "webgpu" and not WEBGPU_FILES:
+        engine = "custom" if CUSTOM_FILES else ("cpu" if AI_MODE else "demo")
+    if engine == "custom" and not CUSTOM_FILES:
         engine = "cpu" if AI_MODE else "demo"
     if engine == "auto":
-        engine = "webgpu" if WEBGPU_FILES else ("cpu" if AI_MODE else "demo")
+        engine = ("webgpu" if WEBGPU_FILES else
+                  ("custom" if CUSTOM_FILES else
+                   ("cpu" if AI_MODE else "demo")))
     if engine == "cpu" and not AI_MODE:
         engine = "demo"
     params["engine"] = engine
@@ -460,8 +470,8 @@ def api_generate():
 
 def guarded_worker(job):
     try:
-        if job["params"].get("engine") == "webgpu":
-            webgpu_waiter_worker(job)
+        if job["params"].get("engine") in ("webgpu", "custom"):
+            webgpu_waiter_worker(job)          # same waiter: browser frames
         else:
             generation_worker(job)
     finally:
@@ -473,7 +483,7 @@ def api_upload_frame(jid):
     """Receive one GPU-generated keyframe PNG from the browser."""
     with JOBS_LOCK:
         job = JOBS.get(jid)
-    if not job or job["params"].get("engine") != "webgpu":
+    if not job or job["params"].get("engine") not in ("webgpu", "custom"):
         abort(404)
     try:
         idx = int(request.headers.get("X-Frame-Index", "-1"))
