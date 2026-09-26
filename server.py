@@ -3,8 +3,10 @@
 LocalAI Video Studio - fully offline text-to-video generator for Android (Termux).
 
 How it works:
-  1. Your prompt is sent to stable-diffusion.cpp (running 100% on your phone,
-     fully offline) which generates a few AI keyframe images.
+  1. Your prompt is sent to an AI engine running 100% on your phone
+     (fully offline): either stable-diffusion.cpp on CPU, or SD-Turbo in
+     the browser on your GPU via WebGPU (onnxruntime-web).
+     The engine generates a few AI keyframe images.
   2. ffmpeg animates each keyframe with cinematic camera motion
      (zoom / pan) and blends them together with crossfades.
   3. The finished MP4 is served to you in the browser.
@@ -34,6 +36,7 @@ from flask import Flask, jsonify, request, send_file, abort
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(APP_DIR, "models")
+WEBGPU_DIR = os.path.join(APP_DIR, "webgpu")
 OUTPUTS_DIR = os.path.join(APP_DIR, "outputs")
 WORK_DIR = os.path.join(APP_DIR, "work")
 os.makedirs(MODELS_DIR, exist_ok=True)
@@ -80,10 +83,24 @@ def find_taesd():
     return p if os.path.isfile(p) else None
 
 
+def find_webgpu_files():
+    """True if the WebGPU engine assets (onnx models + ort vendor) are installed."""
+    needed = [
+        os.path.join(WEBGPU_DIR, "vendor", "ort.webgpu.min.js"),
+        os.path.join(WEBGPU_DIR, "models", "sd-turbo", "unet", "model.onnx"),
+        os.path.join(WEBGPU_DIR, "models", "sd-turbo", "text_encoder", "model.onnx"),
+        os.path.join(WEBGPU_DIR, "models", "sd-turbo", "vae_decoder", "model.onnx"),
+        os.path.join(WEBGPU_DIR, "models", "clip-tokenizer", "vocab.json"),
+        os.path.join(WEBGPU_DIR, "models", "clip-tokenizer", "merges.txt"),
+    ]
+    return all(os.path.isfile(p) for p in needed)
+
+
 SD_BIN = find_sd_bin()
 MODEL = find_model()
 TAESD = find_taesd()
 AI_MODE = bool(SD_BIN and MODEL)
+WEBGPU_FILES = find_webgpu_files()
 
 
 def model_profile(path):
@@ -343,6 +360,26 @@ def index():
     return send_file(os.path.join(APP_DIR, "public", "index.html"))
 
 
+@app.route("/webgpu/<path:sub>")
+def webgpu_static(sub):
+    """Serve WebGPU engine assets (ort vendor + onnx models) locally - no CDN."""
+    p = os.path.normpath(os.path.join(WEBGPU_DIR, sub))
+    if not p.startswith(os.path.abspath(WEBGPU_DIR)) or not os.path.isfile(p):
+        abort(404)
+    mime = {
+        ".js": "application/javascript", ".mjs": "application/javascript",
+        ".wasm": "application/wasm", ".json": "application/json",
+        ".txt": "text/plain", ".onnx": "application/octet-stream",
+    }.get(os.path.splitext(p)[1], "application/octet-stream")
+    return send_file(p, mimetype=mime, conditional=True)
+
+
+@app.route("/webgpu-engine.js")
+def webgpu_engine_js():
+    return send_file(os.path.join(APP_DIR, "public", "webgpu-engine.js"),
+                     mimetype="application/javascript")
+
+
 @app.route("/api/status")
 def api_status():
     return jsonify({
@@ -350,7 +387,35 @@ def api_status():
         "sd_bin": bool(SD_BIN),
         "model": os.path.basename(MODEL) if MODEL else None,
         "taesd": bool(TAESD),
+        "webgpu_files": WEBGPU_FILES,
     })
+
+
+def webgpu_waiter_worker(job):
+    """Waits for the browser to upload GPU-generated keyframes, then renders."""
+    p = job["params"]
+    jid = job["id"]
+    job_dir = os.path.join(WORK_DIR, jid)
+    os.makedirs(job_dir, exist_ok=True)
+    try:
+        deadline = time.time() + 4 * 3600
+        while job["frames_done"] < p["frames"] and time.time() < deadline:
+            if job.get("aborted"):
+                raise RuntimeError("generation was aborted")
+            time.sleep(1.5)
+        if job["frames_done"] < p["frames"]:
+            raise RuntimeError("timed out waiting for GPU keyframes from the browser")
+        job["stage"] = "rendering video with ffmpeg"
+        out_path = os.path.join(OUTPUTS_DIR, jid + ".mp4")
+        render_video(job_dir, out_path, p["resolution"], p["resolution"],
+                     p["frames"], p["sec"], p.get("motion", "auto"), job["log"])
+        job["progress"] = 100.0
+        job["status"] = "done"
+        job["stage"] = "ready"
+        shutil.rmtree(job_dir, ignore_errors=True)
+    except Exception as e:
+        job["status"] = "error"
+        job["error"] = str(e)[-1200:]
 
 
 @app.route("/api/generate", methods=["POST"])
@@ -373,21 +438,69 @@ def api_generate():
     }
     if params["resolution"] not in (320, 384, 448, 512):
         params["resolution"] = 384
+    engine = data.get("engine", "auto")
+    # effective engine: webgpu needs both the assets and a GPU-capable browser
+    if engine == "webgpu" and not WEBGPU_FILES:
+        engine = "cpu" if AI_MODE else "demo"
+    if engine == "auto":
+        engine = "webgpu" if WEBGPU_FILES else ("cpu" if AI_MODE else "demo")
+    if engine == "cpu" and not AI_MODE:
+        engine = "demo"
+    params["engine"] = engine
     jid = uuid.uuid4().hex[:12]
     job = {"id": jid, "status": "running", "stage": "starting",
            "progress": 0.0, "frames_done": 0, "total_frames": params["frames"],
-           "t0": time.time(), "error": None, "params": params, "log": []}
+           "t0": time.time(), "error": None, "params": params, "log": [],
+           "aborted": False}
     with JOBS_LOCK:
         JOBS[jid] = job
     threading.Thread(target=guarded_worker, args=(job,), daemon=True).start()
-    return jsonify({"job_id": jid})
+    return jsonify({"job_id": jid, "engine": engine})
 
 
 def guarded_worker(job):
     try:
-        generation_worker(job)
+        if job["params"].get("engine") == "webgpu":
+            webgpu_waiter_worker(job)
+        else:
+            generation_worker(job)
     finally:
         BUSY_LOCK.release()
+
+
+@app.route("/api/upload_frame/<jid>", methods=["POST"])
+def api_upload_frame(jid):
+    """Receive one GPU-generated keyframe PNG from the browser."""
+    with JOBS_LOCK:
+        job = JOBS.get(jid)
+    if not job or job["params"].get("engine") != "webgpu":
+        abort(404)
+    try:
+        idx = int(request.headers.get("X-Frame-Index", "-1"))
+    except ValueError:
+        abort(400)
+    if not (0 <= idx < job["total_frames"]):
+        abort(400)
+    job_dir = os.path.join(WORK_DIR, jid)
+    os.makedirs(job_dir, exist_ok=True)
+    with open(os.path.join(job_dir, "kf_%03d.png" % idx), "wb") as f:
+        f.write(request.get_data())
+    with JOBS_LOCK:
+        job["frames_done"] = max(job["frames_done"], idx + 1)
+        job["progress"] = 80.0 * job["frames_done"] / job["total_frames"]
+        job["stage"] = ("GPU keyframe %d of %d done" %
+                        (job["frames_done"], job["total_frames"]))
+    return jsonify({"ok": True, "frames_done": job["frames_done"]})
+
+
+@app.route("/api/abort/<jid>", methods=["POST"])
+def api_abort(jid):
+    with JOBS_LOCK:
+        job = JOBS.get(jid)
+    if not job:
+        abort(404)
+    job["aborted"] = True
+    return jsonify({"ok": True})
 
 
 @app.route("/api/job/<jid>")
