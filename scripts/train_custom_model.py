@@ -16,7 +16,7 @@ Usage:
     python3 train_custom_model.py [--steps 3000] [--n-per-class 500]
                                   [--out out] [--batch 32]
 Outputs (in --out):
-    model.onnx    the model (float32)
+    model.onnx    the model (float32, single file)
     labels.json   categories + keyword hints for the app
     samples.png   one generated image per category (via the exported ONNX,
                   mirroring the browser engine's DDIM exactly)
@@ -27,6 +27,7 @@ import math
 import os
 
 import numpy as np
+import onnx
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -355,11 +356,19 @@ def export_onnx(model, path):
     x = torch.zeros(1, 3, IMG, IMG)
     t = torch.zeros(1, dtype=torch.int64)
     c = torch.zeros(1, dtype=torch.int64)
-    torch.onnx.export(model, (x, t, c), path,
+    tmp = path + ".tmp"
+    torch.onnx.export(model, (x, t, c), tmp,
                       input_names=["x", "t", "class"],
                       output_names=["eps"],
                       dynamic_axes={"x": {0: "batch"}, "eps": {0: "batch"}},
                       opset_version=17)
+    # torch >= 2.14 writes external data by default - consolidate to ONE file
+    # (the browser fetches a single model.onnx)
+    m = onnx.load(tmp, load_external_data=True)
+    onnx.save_model(m, path, save_as_external_data=False)
+    for p in (tmp, tmp + ".data"):
+        if os.path.exists(p):
+            os.remove(p)
 
 
 def grid_png(xs, path):
