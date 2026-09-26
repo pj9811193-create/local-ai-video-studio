@@ -1,5 +1,7 @@
 # LocalAI Video Studio 🎬
 
+**Website:** https://pj9811193-create.github.io/local-ai-video-studio/
+
 A **fully offline, free, unlimited** text-to-video generator that runs
 entirely on your Android phone — no internet, no accounts, no watermarks,
 no GPU needed. You type a prompt, an on-device AI model paints scene
