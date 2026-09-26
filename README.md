@@ -40,6 +40,11 @@ engine (~2.4 GB, one time) and starts the studio in your browser.
 To choose the CPU engine instead: `ENGINE=cpu bash run.sh`
 (adds compiling + a ~2.3 GB model; also auto-picks Q4/Q8 by your RAM).
 
+Low on storage? Use the int8-compressed GPU engine: `ENGINE=webgpu8 bash run.sh`
+(~1.8 GB instead of ~2.4 GB — same pipeline, built by `scripts/make_int8.py`
+and hosted on this repo's [releases](https://github.com/pj9811193-create/local-ai-video-studio/releases/tag/webgpu-int8);
+the fp16 engine stays the quality reference).
+
 After install, this is the only command you ever need again:
 
 ```bash
@@ -49,7 +54,8 @@ bash ~/aivideo/run.sh
 Everything is automated — no questions asked. Optional knobs:
 
 ```bash
-ENGINE=webgpu bash setup.sh   # default: GPU engine, no compile
+ENGINE=webgpu bash setup.sh   # default: GPU engine, no compile (~2.4 GB)
+ENGINE=webgpu8 bash setup.sh  # int8-compressed GPU engine (~1.8 GB)
 ENGINE=cpu     bash setup.sh  # CPU engine (MODEL=q8|q4|sd15 to override)
 ENGINE=both    bash setup.sh  # both engines
 ENGINE=demo    bash setup.sh  # no download at all (test mode)
@@ -105,7 +111,7 @@ fully-offline, unlimited generation on low-end hardware.
 
 | Path | What |
 |---|---|
-| `~/aivideo/webgpu/` | GPU engine (onnx models + onnxruntime-web, ~2.4 GB) |
+| `~/aivideo/webgpu/` | GPU engine (onnx models + onnxruntime-web, ~1.8–2.4 GB) |
 | `~/aivideo/models/` | CPU AI models |
 | `~/aivideo/outputs/` | your finished MP4 videos |
 | `~/aivideo/work/` | temporary files (auto-cleaned) |
