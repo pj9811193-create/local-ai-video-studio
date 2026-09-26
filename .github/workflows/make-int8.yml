@@ -1,0 +1,54 @@
+name: Build int8 GPU engine
+
+# Compresses the WebGPU SD-Turbo models (fp16, ~2.4 GB) to int8 and
+# publishes them to the 'webgpu-int8' release, hosted on this repo.
+# Manual trigger only - takes ~20-40 min and needs the big-runner RAM.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install onnx onnxruntime numpy pillow
+
+      - name: Download fp16 source models (2.4 GB)
+        run: |
+          mkdir -p src/{unet,text_encoder,vae_decoder}
+          base="https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main"
+          for m in unet text_encoder vae_decoder; do
+            curl -L --retry 10 --retry-delay 5 -C - -o "src/$m/model.onnx" "$base/$m/model.onnx"
+          done
+          ls -la src/*/model.onnx
+
+      - name: Quantize to int8 and verify against fp16
+        run: python3 scripts/make_int8.py src out --image
+
+      - name: Publish to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create webgpu-int8 \
+            --title "WebGPU engine - int8 compressed" \
+            --notes "SD-Turbo ONNX models with int8-compressed MatMul/Gemm weights.
+          Same graph IO, drop-in for the fp16 files. Built and numerically
+          verified by scripts/make_int8.py (see report.json and the sample
+          images)." || true
+          gh release upload webgpu-int8 \
+            out/unet_int8.onnx out/text_encoder_int8.onnx out/vae_decoder.onnx \
+            out/report.json out/sample_fp16.png out/sample_int8.png --clobber
+
+      - name: Show report
+        run: cat out/report.json

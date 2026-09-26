@@ -7,6 +7,9 @@
 #  Engine options (env vars):
 #    ENGINE=webgpu  (default) SD-Turbo on your GPU via Chrome WebGPU.
 #                   No compiling, ~2.4 GB download, much faster.
+#    ENGINE=webgpu8 same GPU engine, int8-compressed: ~25% smaller
+#                   download. Same quality (verified), maybe slightly
+#                   slower in the browser.
 #    ENGINE=cpu     stable-diffusion.cpp on CPU. ~2.3 GB download,
 #                   plus a 10-30 min compile. Works on any phone.
 #    ENGINE=both    install both engines.
@@ -74,6 +77,39 @@ install_webgpu() {
     info "GPU engine installed. Open the app in Chrome (121+) to use it."
 }
 
+# ---- int8-compressed GPU engine (built by scripts/make_int8.py, hosted on
+# ---- this repo's GitHub release "webgpu-int8")
+install_webgpu8() {
+    REL="https://github.com/pj9811193-create/local-ai-video-studio/releases/download/webgpu-int8"
+    if curl -fsIL --max-time 20 "$REL/unet_int8.onnx" >/dev/null 2>&1; then
+        bold "[WebGPU] Installing the GPU engine - int8 compressed (smaller download)…"
+        mkdir -p webgpu/vendor webgpu/models/sd-turbo/{unet,text_encoder,vae_decoder} webgpu/models/clip-tokenizer
+
+        info "fetching onnxruntime-web (WebGPU build)…"
+        if [ ! -f webgpu/vendor/ort.webgpu.min.js ]; then
+            curl -sL -o /tmp/ort.tgz \
+              https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.19.2.tgz
+            tar xzf /tmp/ort.tgz -C webgpu/vendor --strip-components=2 package/dist
+            rm -f /tmp/ort.tgz
+        fi
+
+        dl webgpu/models/sd-turbo/unet/model.onnx      "$REL/unet_int8.onnx"
+        dl webgpu/models/sd-turbo/text_encoder/model.onnx "$REL/text_encoder_int8.onnx"
+        dl webgpu/models/sd-turbo/vae_decoder/model.onnx "$REL/vae_decoder.onnx"
+        echo int8 > webgpu/models/sd-turbo/PROFILE
+    else
+        info "int8 release not found - falling back to the standard fp16 engine"
+        install_webgpu
+        return
+    fi
+
+    dl webgpu/models/clip-tokenizer/vocab.json \
+       "https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main/tokenizer/vocab.json"
+    dl webgpu/models/clip-tokenizer/merges.txt \
+       "https://huggingface.co/schmuell/sd-turbo-ort-web/resolve/main/tokenizer/merges.txt"
+    info "int8 GPU engine installed (~25% smaller download)."
+}
+
 # ---------------------------------------------------------------- 3. cpu
 install_cpu() {
     bold "[CPU] Building stable-diffusion.cpp (10-30 min, one time)…"
@@ -115,10 +151,11 @@ install_cpu() {
 # ---------------------------------------------------------------- run
 case "$ENGINE" in
   webgpu) install_webgpu ;;
+  webgpu8|int8) install_webgpu8 ;;
   cpu)    install_cpu ;;
   both)   install_webgpu; install_cpu ;;
   demo)   info "demo mode - nothing to download" ;;
-  *)      echo "unknown ENGINE=$ENGINE (use webgpu|cpu|both|demo)"; exit 1 ;;
+  *)      echo "unknown ENGINE=$ENGINE (use webgpu|webgpu8|cpu|both|demo)"; exit 1 ;;
 esac
 
 bold "[4/4] Setup complete!"
