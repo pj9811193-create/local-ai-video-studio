@@ -10,9 +10,13 @@
 #    ENGINE=webgpu8 same GPU engine, int8-compressed: ~25% smaller
 #                   download. Same quality (verified), maybe slightly
 #                   slower in the browser.
+#    ENGINE=custom  our OWN tiny AI model (~4 MB) - trained from scratch
+#                   by scripts/train_custom_model.py, hosted on this repo's
+#                   release. Simple stylized scenes, runs anywhere.
 #    ENGINE=cpu     stable-diffusion.cpp on CPU. ~2.3 GB download,
 #                   plus a 10-30 min compile. Works on any phone.
 #    ENGINE=both    install both engines.
+#    ENGINE=all     GPU + own tiny model + CPU.
 #    ENGINE=demo    no download, no compile (test mode).
 #
 #  Extra knobs: MODEL=q8|q4|sd15 (cpu engine), SKIP_START=1
@@ -110,7 +114,30 @@ install_webgpu8() {
     info "int8 GPU engine installed (~25% smaller download)."
 }
 
-# ---------------------------------------------------------------- 3. cpu
+# ---------------------------------------------------------------- 3b. own
+install_custom() {
+    bold "[Custom] Installing our OWN tiny AI model (~4 MB, no compile)…"
+    mkdir -p webgpu/vendor webgpu/models/custom
+
+    # onnxruntime-web runs it in the browser
+    if [ ! -f webgpu/vendor/ort.webgpu.min.js ]; then
+        curl -sL -o /tmp/ort.tgz \
+          https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.19.2.tgz
+        tar xzf /tmp/ort.tgz -C webgpu/vendor --strip-components=2 package/dist
+        rm -f /tmp/ort.tgz
+    fi
+
+    REL="https://github.com/pj9811193-create/local-ai-video-studio/releases/download/custom-model"
+    if curl -fsIL --max-time 20 "$REL/model.onnx" >/dev/null 2>&1; then
+        dl webgpu/models/custom/model.onnx  "$REL/model.onnx"
+        dl webgpu/models/custom/labels.json "$REL/labels.json"
+        info "own AI model installed - pick engine 'Custom · our own tiny AI'."
+    else
+        info "custom model release not found yet - skipping"
+    fi
+}
+
+# ---------------------------------------------------------------- 4. cpu
 install_cpu() {
     bold "[CPU] Building stable-diffusion.cpp (10-30 min, one time)…"
     if [ ! -d stable-diffusion.cpp ]; then
@@ -152,10 +179,12 @@ install_cpu() {
 case "$ENGINE" in
   webgpu) install_webgpu ;;
   webgpu8|int8) install_webgpu8 ;;
+  custom|own|tiny) install_custom ;;
   cpu)    install_cpu ;;
   both)   install_webgpu; install_cpu ;;
+  all)    install_webgpu; install_custom; install_cpu ;;
   demo)   info "demo mode - nothing to download" ;;
-  *)      echo "unknown ENGINE=$ENGINE (use webgpu|webgpu8|cpu|both|demo)"; exit 1 ;;
+  *)      echo "unknown ENGINE=$ENGINE (use webgpu|webgpu8|custom|cpu|both|all|demo)"; exit 1 ;;
 esac
 
 bold "[4/4] Setup complete!"

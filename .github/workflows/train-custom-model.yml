@@ -1,0 +1,46 @@
+name: Train custom model
+
+# Trains OUR OWN tiny AI model from scratch (architecture + training set
+# both defined in scripts/train_custom_model.py - no third-party weights)
+# and publishes it to the 'custom-model' release. Manual trigger only:
+# CPU training takes 1-3 hours.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install onnx onnxscript onnxruntime numpy pillow
+
+      - name: Train
+        run: |
+          python3 scripts/train_custom_model.py \
+            --steps 3000 --n-per-class 500 --batch 32 --out out
+
+      - name: Publish to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create custom-model \
+            --title "Our own tiny AI model (~4 MB)" \
+            --notes "Trained from scratch by scripts/train_custom_model.py:
+          our architecture, our procedural training set. Simple stylized
+          64x64 scene images in 12 categories, conditioned on prompt
+          keywords. samples.png shows one image per category." || true
+          gh release upload custom-model \
+            out/model.onnx out/labels.json out/samples.png --clobber
