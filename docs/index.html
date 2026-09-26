@@ -1,282 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="LocalAI Video Studio — a fully offline, free, unlimited AI text-to-video generator that runs entirely on your Android phone. No internet, no accounts, no limits.">
-<title>LocalAI Video Studio — offline AI video, on your phone</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalAI Video Studio — offline AI video generation on your phone</title>
+<meta name="description" content="Fully offline, free, unlimited text-to-video generation that runs entirely on your Android phone. No internet after setup, no accounts, no watermarks.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --font-body: 'IBM Plex Sans', system-ui, sans-serif;
-    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
-
-    --bg: #0b0e0c;
-    --surface: #10150f;
-    --surface-elevated: #161d15;
-    --border: rgba(134, 239, 172, 0.10);
-    --border-bright: rgba(134, 239, 172, 0.22);
-    --text: #dce8dc;
-    --text-dim: #7f9482;
-
-    --green: #4ade80;
-    --green-dim: rgba(74, 222, 128, 0.10);
+    --bg: #0a0c10;
+    --bg2: #10141c;
+    --surface: #141a24;
+    --surface2: #1a2130;
+    --border: #232c3e;
+    --border2: #2d3a52;
+    --text: #e6ecf5;
+    --dim: #8a94a8;
+    --dim2: #5d6activity778;
+    --green: #34d399;
+    --green-dim: #266150;
     --amber: #fbbf24;
-    --amber-dim: rgba(251, 191, 36, 0.09);
-    --red: #f87171;
+    --amber-dim: #6b5a1e;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
-  body {
-    font-family: var(--font-body);
-    background-color: var(--bg);
-    background-image: radial-gradient(ellipse at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 55%);
-    color: var(--text);
-    line-height: 1.6;
-    overflow-wrap: break-word;
-  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.6; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 22px; }
 
-  .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px; }
-
-  /* ---------- top bar ---------- */
   .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 0; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(10,12,16,.92); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
   }
-  .brand {
-    font-family: var(--font-mono); font-weight: 600; font-size: 14px;
-    color: var(--green); display: flex; align-items: center; gap: 9px;
-    text-decoration: none;
-  }
-  .brand::before {
-    content: ''; width: 9px; height: 9px; border-radius: 50%;
-    background: var(--green); box-shadow: 0 0 0 3px var(--green-dim);
-  }
-  .topbar nav { display: flex; gap: 22px; }
-  .topbar nav a {
-    font-family: var(--font-mono); font-size: 12.5px; color: var(--text-dim);
-    text-decoration: none; transition: color .15s;
-  }
-  .topbar nav a:hover { color: var(--green); }
+  .topbar .wrap { display: flex; justify-content: space-between; align-items: center; height: 56px; }
+  .brand { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; }
+  .brand::before { content: "~/"; color: var(--green); }
+  .topbar nav { display: flex; gap: 26px; }
+  .topbar nav a { color: var(--dim); text-decoration: none; font-size: 13.5px; font-family: var(--mono); }
+  .topbar nav a:hover { color: var(--text); }
 
-  /* ---------- hero ---------- */
-  .hero { padding: 72px 0 40px; }
-  .hero__kicker {
-    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 2.5px; color: var(--amber);
-    margin-bottom: 18px;
+  .hero { padding: 74px 0 60px; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(600px 300px at 85% 20%, rgba(52,211,153,.07), transparent 70%),
+      radial-gradient(500px 400px at 10% 80%, rgba(251,191,36,.05), transparent 70%);
+    pointer-events: none;
   }
-  h1 {
-    font-family: var(--font-mono); font-weight: 700; letter-spacing: -1px;
-    font-size: clamp(30px, 6vw, 52px); line-height: 1.08;
-  }
-  h1 .dim { color: var(--text-dim); }
-  .hero__sub {
-    font-size: clamp(16px, 2.4vw, 19px); color: var(--text-dim);
-    max-width: 58ch; margin: 20px 0 30px;
-  }
+  .hero__kicker { font-family: var(--mono); font-size: 12.5px; color: var(--green); letter-spacing: .22em; text-transform: uppercase; margin-bottom: 18px; }
+  .hero h1 { font-size: clamp(34px, 5.4vw, 56px); line-height: 1.08; letter-spacing: -.015em; font-weight: 700; max-width: 640px; }
+  .hero h1 .dim { color: var(--dim); }
+  .hero__sub { color: var(--dim); max-width: 560px; margin-top: 20px; font-size: 17px; }
   .hero__sub b { color: var(--text); font-weight: 600; }
-
-  .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 34px; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
   .pill {
-    font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
-    padding: 5px 12px; border-radius: 99px;
-    border: 1px solid var(--border-bright); color: var(--green);
-    background: var(--green-dim);
+    font-family: var(--mono); font-size: 12px; color: var(--green);
+    border: 1px solid var(--green-dim); border-radius: 999px; padding: 5px 14px;
+    background: rgba(52,211,153,.05);
   }
-  .pill--amber { color: var(--amber); background: var(--amber-dim); border-color: rgba(251,191,36,.25); }
-
-  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .pill--amber { color: var(--amber); border-color: var(--amber-dim); background: rgba(251,191,36,.05); }
+  .cta-row { display: flex; gap: 14px; margin-top: 34px; flex-wrap: wrap; }
   .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-family: var(--font-mono); font-size: 14px; font-weight: 600;
-    padding: 13px 22px; border-radius: 10px; text-decoration: none;
-    transition: transform .15s ease, box-shadow .15s ease;
+    display: inline-flex; align-items: center; text-decoration: none;
+    font-family: var(--mono); font-size: 14.5px; font-weight: 600;
+    padding: 13px 26px; border-radius: 10px; transition: transform .12s ease, background .12s ease;
   }
-  .btn--primary {
-    background: var(--green); color: #06240f;
-    box-shadow: 0 4px 22px rgba(74,222,128,.18);
-  }
-  .btn--ghost {
-    border: 1px solid var(--border-bright); color: var(--text);
-    background: var(--surface);
-  }
-  .btn:hover { transform: translateY(-2px); }
+  .btn--primary { background: var(--green); color: #06251a; }
+  .btn--primary:hover { transform: translateY(-1px); background: #4ae3ab; }
+  .btn--ghost { border: 1px solid var(--border2); color: var(--text); }
+  .btn--ghost:hover { background: var(--surface); }
 
-  /* ---------- terminal window ---------- */
-  .terminal {
-    margin: 46px 0 0; border: 1px solid var(--border);
-    border-radius: 12px; overflow: hidden; background: var(--surface);
-    animation: fadeUp .5s ease-out both; animation-delay: .15s;
-  }
+  .terminal { margin-top: 44px; border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; background: #0c0f14; }
   .terminal__bar {
-    display: flex; align-items: center; padding: 10px 16px;
-    background: var(--surface-elevated); border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-    letter-spacing: 1px; text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border-bottom: 1px solid var(--border2);
+    padding: 9px 16px; font-family: var(--mono); font-size: 12px; color: var(--dim);
   }
+  .terminal__bar::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--green-dim); }
   .terminal__body {
-    font-family: var(--font-mono); font-size: 13px; line-height: 1.85;
-    padding: 18px 20px; overflow-x: auto; white-space: pre;
+    font-family: var(--mono); font-size: 13.5px; line-height: 1.9;
+    padding: 18px 20px; color: var(--dim); overflow-x: auto; white-space: pre;
   }
   .terminal__body .p { color: var(--green); font-weight: 600; }
-  .terminal__body .c { color: var(--text-dim); }
   .terminal__body .k { color: var(--amber); }
+  .terminal__body .g { color: var(--text); font-weight: 500; }
+  .terminal__body .c { color: var(--dim); }
   .terminal__body .ok { color: var(--green); }
 
-  /* ---------- sections ---------- */
-  section { padding: 58px 0 8px; }
-  .section-label {
-    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 2px; color: var(--green);
-    display: flex; align-items: center; gap: 9px; margin-bottom: 14px;
-  }
-  .section-label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  section { padding: 58px 0; border-top: 1px solid var(--border); }
+  .section-label { font-family: var(--mono); font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--green); margin-bottom: 12px; }
   .section-label--amber { color: var(--amber); }
-  h2 {
-    font-family: var(--font-mono); font-weight: 700; letter-spacing: -0.5px;
-    font-size: clamp(22px, 4vw, 30px); margin-bottom: 26px;
-  }
+  h2 { font-size: clamp(24px, 3.4vw, 34px); letter-spacing: -.01em; margin-bottom: 30px; }
 
-  /* feature grid */
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
   .ve-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 22px;
-    transition: transform .18s ease, border-color .18s ease;
-    animation: fadeUp .45s ease-out both; animation-delay: calc(var(--i, 0) * .07s);
+    border: 1px solid var(--border2); border-radius: 12px; padding: 22px;
+    background: linear-gradient(180deg, var(--surface), var(--bg2));
   }
-  .ve-card:hover { transform: translateY(-3px); border-color: var(--border-bright); }
-  .ve-card__label {
-    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .ve-card--green .ve-card__label { color: var(--green); }
+  .ve-card__label { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--green); margin-bottom: 12px; }
   .ve-card--amber .ve-card__label { color: var(--amber); }
-  .ve-card__label::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-  .ve-card h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 8px; }
-  .ve-card p { font-size: 13.5px; color: var(--text-dim); }
+  .ve-card h3 { font-size: 17px; margin-bottom: 8px; }
+  .ve-card p { color: var(--dim); font-size: 14px; }
+  .ve-card p b { color: var(--text); }
 
-  /* pipeline */
-  .pipeline { display: flex; flex-direction: column; gap: 0; }
-  .pipeline__step {
-    display: grid; grid-template-columns: 44px 1fr; gap: 16px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 18px 20px;
-  }
+  .pipeline { max-width: 660px; }
+  .pipeline__step { display: flex; gap: 22px; padding: 20px 0; }
   .pipeline__num {
-    font-family: var(--font-mono); font-weight: 700; font-size: 15px;
-    color: var(--green); background: var(--green-dim);
-    border: 1px solid var(--border-bright); border-radius: 9px;
-    display: flex; align-items: center; justify-content: center; height: 44px;
+    font-family: var(--mono); font-size: 13px; color: var(--amber);
+    border: 1px solid var(--amber-dim); border-radius: 8px;
+    width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    flex: none; background: rgba(251,191,36,.05);
   }
-  .pipeline__step h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 5px; }
-  .pipeline__step p { font-size: 13.5px; color: var(--text-dim); }
-  .pipeline__step code {
-    font-family: var(--font-mono); font-size: 12px; color: var(--green);
-    background: var(--green-dim); padding: 1px 6px; border-radius: 4px;
-  }
-  .flow-arrow {
-    display: flex; justify-content: center; padding: 4px 0;
-    color: var(--border-bright);
-  }
-  .flow-arrow svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .pipeline__step h3 { font-size: 17.5px; margin-bottom: 6px; }
+  .pipeline__step p { color: var(--dim); font-size: 14.5px; }
+  .pipeline__step p b, .pipeline__step p em { color: var(--text); font-style: normal; }
+  .flow-arrow { width: 44px; display: flex; justify-content: center; }
+  .flow-arrow svg { width: 18px; height: 18px; stroke: var(--dim2); fill: none; stroke-width: 1.6; }
 
-  /* install steps */
-  .step-list { counter-reset: step; display: flex; flex-direction: column; gap: 22px; }
-  .step { position: relative; padding-left: 56px; }
+  .step-list { display: flex; flex-direction: column; gap: 30px; max-width: 660px; }
+  .step { position: relative; padding-left: 54px; }
   .step::before {
-    counter-increment: step; content: counter(step, decimal-leading-zero);
-    position: absolute; left: 0; top: 0;
-    font-family: var(--font-mono); font-weight: 700; font-size: 17px;
-    color: var(--amber); background: var(--amber-dim);
-    border: 1px solid rgba(251,191,36,.3); border-radius: 10px;
-    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    content: ""; position: absolute; left: 0; top: 0;
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--amber-dim); background: rgba(251,191,36,.06);
   }
-  .step h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
-  .step p { font-size: 13.5px; color: var(--text-dim); margin-bottom: 10px; }
+  .step::after {
+    content: "→"; position: absolute; left: 13px; top: 8px; color: var(--amber); font-size: 13px;
+  }
+  .step:nth-child(2)::after { content: "2"; font-family: var(--mono); left: 15px; }
+  .step:nth-child(3)::after { content: "3"; font-family: var(--mono); left: 15px; }
+  .step h3 { font-size: 17.5px; margin-bottom: 8px; }
+  .step p { color: var(--dim); font-size: 14.5px; margin-bottom: 12px; }
+  .step p b { color: var(--text); }
   .step a { color: var(--green); }
 
-  .code-file {
-    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
-    background: var(--surface);
-  }
+  .code-file { border: 1px solid var(--border2); border-radius: 10px; overflow: hidden; }
   .code-file__header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 9px 15px; background: var(--surface-elevated);
-    border-bottom: 1px solid var(--border);
-    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-    letter-spacing: 1px; text-transform: uppercase;
+    background: var(--surface); padding: 7px 14px; border-bottom: 1px solid var(--border2);
+    font-family: var(--mono); font-size: 11.5px; color: var(--dim);
   }
   .copy-btn {
-    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-    background: transparent; color: var(--text-dim); border: 1px solid var(--border-bright);
-    border-radius: 6px; padding: 3px 10px; cursor: pointer; transition: all .15s;
+    font-family: var(--mono); font-size: 11.5px; color: var(--green);
+    background: none; border: 1px solid var(--green-dim); border-radius: 6px;
+    padding: 3px 10px; cursor: pointer;
   }
-  .copy-btn:hover { color: var(--green); border-color: var(--green); }
-  .copy-btn.copied { color: var(--green); border-color: var(--green); }
+  .copy-btn.copied { color: #06251a; background: var(--green); }
   .code-file__body {
-    font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
-    padding: 14px 16px; white-space: pre-wrap; word-break: break-word;
-    color: var(--text);
+    font-family: var(--mono); font-size: 13.5px; line-height: 1.85;
+    padding: 16px 18px; color: var(--text); overflow-x: auto; white-space: pre;
+    background: #0c0f14;
   }
-  .code-file__body .c { color: var(--text-dim); }
   .code-file__body .g { color: var(--green); }
-  .code-file__body .a { color: var(--amber); }
+  .code-file__body .c { color: var(--dim); }
 
-  /* expectations table */
-  .table-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .table-wrap { border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; }
+  .table-scroll { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
   .data-table th {
-    background: var(--surface-elevated); font-family: var(--font-mono);
-    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--text-dim); text-align: left; padding: 12px 16px;
-    border-bottom: 2px solid var(--border-bright); white-space: nowrap;
+    text-align: left; font-family: var(--mono); font-size: 12px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--dim); background: var(--surface);
+    padding: 12px 18px; border-bottom: 1px solid var(--border2);
   }
-  .data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
-  .data-table tbody tr:last-child td { border-bottom: none; }
-  .data-table tbody tr:hover { background: var(--green-dim); }
-  .data-table td:first-child { font-weight: 600; }
-  .data-table .num { font-family: var(--font-mono); }
+  .data-table td { padding: 13px 18px; border-bottom: 1px solid var(--border); color: var(--dim); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table td.num { color: var(--text); font-family: var(--mono); font-size: 13.5px; }
 
   .callout {
-    padding: 16px 20px; border-radius: 10px; border-left: 4px solid var(--amber);
-    background: var(--amber-dim); margin: 26px 0 0; font-size: 14px;
+    margin-top: 22px; border: 1px solid var(--border2); border-left: 3px solid var(--amber);
+    background: var(--bg2); padding: 16px 20px; color: var(--dim); font-size: 14.5px;
+    border-radius: 0 10px 10px 0; max-width: 660px;
   }
-  .callout b { color: var(--amber); }
-  .callout--green { border-left-color: var(--green); background: var(--green-dim); }
-  .callout--green b { color: var(--green); }
+  .callout b { color: var(--text); }
+  .callout--green { border-left-color: var(--green); }
 
-  /* faq */
-  details.collapsible { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: var(--surface); }
-  details.collapsible summary {
-    padding: 15px 20px; font-family: var(--font-mono); font-size: 13px; font-weight: 600;
-    cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px;
-    transition: background .15s;
+  .collapsible { border: 1px solid var(--border2); border-radius: 10px; margin-bottom: 10px; background: var(--bg2); }
+  .collapsible summary {
+    cursor: pointer; padding: 15px 20px; font-weight: 600; font-size: 15px;
+    list-style: none; display: flex; justify-content: space-between; align-items: center;
   }
-  details.collapsible summary:hover { background: var(--surface-elevated); }
-  details.collapsible summary::-webkit-details-marker { display: none; }
-  details.collapsible summary::before { content: '▸'; font-size: 11px; color: var(--text-dim); transition: transform .15s; }
-  details.collapsible[open] summary::before { transform: rotate(90deg); }
-  details.collapsible .collapsible__body { padding: 4px 20px 16px; font-size: 13.5px; color: var(--text-dim); border-top: 1px solid var(--border); }
-  details.collapsible .collapsible__body code {
-    font-family: var(--font-mono); font-size: 12px; color: var(--green);
-    background: var(--green-dim); padding: 1px 5px; border-radius: 3px;
-  }
+  .collapsible summary::-webkit-details-marker { display: none; }
+  .collapsible summary::after { content: "+"; font-family: var(--mono); color: var(--dim); font-size: 18px; }
+  .collapsible[open] summary::after { content: "−"; }
+  .collapsible__body { padding: 0 20px 18px; color: var(--dim); font-size: 14.5px; }
+  .collapsible__body code { font-family: var(--mono); font-size: 12.5px; color: var(--green); background: var(--surface); padding: 2px 7px; border-radius: 5px; }
 
-  footer {
-    margin-top: 70px; border-top: 1px solid var(--border);
-    padding: 30px 0 44px; font-size: 13px; color: var(--text-dim);
-  }
-  footer a { color: var(--green); }
-  footer .cols { display: flex; flex-wrap: wrap; gap: 30px; justify-content: space-between; }
+  footer { border-top: 1px solid var(--border); padding: 40px 0 56px; color: var(--dim); font-size: 13.5px; }
+  footer .cols { display: flex; justify-content: space-between; gap: 30px; flex-wrap: wrap; }
+  footer a { color: var(--green); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
   @media (max-width: 768px) {
     .topbar nav { display: none; }
@@ -324,12 +241,10 @@
     <div class="terminal">
       <div class="terminal__bar">~/aivideo — termux</div>
       <div class="terminal__body"><span class="p">$</span> git clone https://github.com/pj9811193-create/local-ai-video-studio.git ~/aivideo
-<span class="p">$</span> cd ~/aivideo <span class="c">&&</span> bash setup.sh
-<span class="k">[2/5]</span> building stable-diffusion.cpp <span class="c">... 10–30 min, once</span>
-<span class="k">[4/5]</span> downloading SD-Turbo model <span class="c">... 2.3 GB, once</span>
+<span class="p">$</span> cd ~/aivideo <span class="c">&&</span> <span class="g">bash run.sh</span>
+<span class="k">[auto]</span> installing what's missing <span class="c">... GPU engine, ~2.4 GB, one time</span>
+<span class="k">[auto]</span> no compiling needed - SD-Turbo runs on your GPU via WebGPU
 <span class="ok">done — the internet is no longer needed.</span>
-<span class="p">$</span> bash start.sh
-<span class="ok">✔</span> video studio running at http://localhost:8080
 <span class="p">$</span> <span class="c">▸ type a prompt → generate → save MP4 to gallery</span></div>
     </div>
   </header>
@@ -341,7 +256,7 @@
       <div class="ve-card ve-card--green" style="--i:0">
         <div class="ve-card__label">no internet</div>
         <h3>Runs with airplane mode on</h3>
-        <p>The AI model (stable-diffusion.cpp) and the video renderer (ffmpeg) both run on your device. After the one-time setup, nothing ever leaves your phone.</p>
+        <p>The AI model and the video renderer (ffmpeg) both run on your device. After the one-time setup, nothing ever leaves your phone.</p>
       </div>
       <div class="ve-card ve-card--green" style="--i:1">
         <div class="ve-card__label">no limits</div>
@@ -354,9 +269,9 @@
         <p>No sign-up, no API keys, no telemetry. Your prompts and videos never exist anywhere but on your phone.</p>
       </div>
       <div class="ve-card ve-card--amber" style="--i:3">
-        <div class="ve-card__label">low-end friendly</div>
-        <h3>Built for weak hardware</h3>
-        <p>Uses a distilled SD-Turbo model (4 steps per image), a tiny TAESD decoder, and quantized GGUF weights to fit in ~2 GB of RAM.</p>
+        <div class="ve-card__label">gpu accelerated</div>
+        <h3>Two engines, auto-picked</h3>
+        <p><b>WebGPU</b>: SD-Turbo runs on your phone's GPU through Chrome — no compiling, images in seconds. Falls back to the <b>CPU engine</b> (stable-diffusion.cpp) on any phone.</p>
       </div>
     </div>
   </section>
@@ -377,7 +292,7 @@
         <div class="pipeline__num">02</div>
         <div>
           <h3>An AI paints the keyframes — on your phone</h3>
-          <p><code>stable-diffusion.cpp</code> generates one image per scene, each with a slightly different shot (wide, close-up, golden hour) so the video feels like it's traveling through the scene.</p>
+          <p>SD-Turbo generates one image per scene — on your <b>GPU</b> via WebGPU (fast) or on the <b>CPU</b> via stable-diffusion.cpp — each with a slightly different shot (wide, close-up, golden hour) so the video feels like it's traveling through the scene.</p>
         </div>
       </div>
       <div class="flow-arrow"><svg viewBox="0 0 20 20"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg></div>
@@ -400,20 +315,20 @@
         <p>Termux is the terminal that lets the AI engine run on Android. The Play Store version is outdated and broken — get it from <a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noopener">f-droid.org/packages/com.termux</a>. You'll also need ~4 GB free storage and Wi-Fi for the one-time model download.</p>
       </div>
       <div class="step">
-        <h3>Clone and set up</h3>
-        <p>Paste this into Termux. Setup compiles the AI engine (10–30 minutes — keep the charger plugged in) and downloads the model you pick.</p>
+        <h3>Run one command</h3>
+        <p>That's the whole install. <b>run.sh</b> is self-healing: it installs whatever is missing (packages, GPU engine), then starts the app and opens your browser. First run downloads ~2.4 GB, once.</p>
         <div class="code-file">
           <div class="code-file__header"><span>termux</span><button class="copy-btn" type="button">copy</button></div>
           <div class="code-file__body"><span class="g">git clone</span> https://github.com/pj9811193-create/local-ai-video-studio.git ~/aivideo
-<span class="g">cd</span> ~/aivideo <span class="c">&&</span> <span class="g">bash</span> setup.sh</div>
+<span class="g">cd</span> ~/aivideo <span class="c">&&</span> <span class="g">bash</span> run.sh</div>
         </div>
       </div>
       <div class="step">
-        <h3>Start creating</h3>
-        <p>Setup opens your browser at the studio. From now on, this is the only command you need — internet not required.</p>
+        <h3>Prefer the CPU engine?</h3>
+        <p>If your browser lacks WebGPU, use the always-works CPU engine (compiles stable-diffusion.cpp, ~10–30 min):</p>
         <div class="code-file">
           <div class="code-file__header"><span>termux</span><button class="copy-btn" type="button">copy</button></div>
-          <div class="code-file__body"><span class="g">bash</span> start.sh   <span class="c"># → http://localhost:8080</span></div>
+          <div class="code-file__body">ENGINE=cpu <span class="g">bash</span> run.sh</div>
         </div>
       </div>
     </div>
@@ -429,12 +344,12 @@
       <div class="table-scroll">
         <table class="data-table">
           <thead>
-            <tr><th>Phone class</th><th>One 384×384 AI image</th><th>Typical 4-scene video</th></tr>
+            <tr><th>Phone class</th><th>One AI image, CPU engine</th><th>One AI image, GPU engine</th></tr>
           </thead>
           <tbody>
-            <tr><td>Flagship (SD 8-series, 8 GB RAM)</td><td class="num">~1–3 min</td><td class="num">~10–15 min</td></tr>
-            <tr><td>Mid-range (Helio / SD 6xx)</td><td class="num">~5–15 min</td><td class="num">~30–60 min</td></tr>
-            <tr><td>Low-end (3 GB RAM, use 320px)</td><td class="num">~15–45 min</td><td class="num">1–3 hours</td></tr>
+            <tr><td>Flagship (SD 8-series, 8 GB RAM)</td><td class="num">~1–3 min</td><td class="num">seconds</td></tr>
+            <tr><td>Mid-range (Helio / SD 6xx)</td><td class="num">~5–15 min</td><td class="num">~10–60 s</td></tr>
+            <tr><td>Low-end (3 GB RAM)</td><td class="num">~15–45 min</td><td class="num">WebGPU may be unavailable → CPU</td></tr>
           </tbody>
         </table>
       </div>
@@ -448,6 +363,12 @@
     <div class="section-label">faq & troubleshooting</div>
     <h2>Common questions.</h2>
 
+    <details class="collapsible">
+      <summary>Which browsers support the GPU (WebGPU) engine?</summary>
+      <div class="collapsible__body">
+        Chrome 121+ on Android 12+ devices with capable GPUs (most phones from ~2021 onward). If your browser lacks WebGPU, the app automatically falls back to the CPU engine — it always works, just slower.
+      </div>
+    </details>
     <details class="collapsible">
       <summary>Generation dies mid-way on Android 12+</summary>
       <div class="collapsible__body">
