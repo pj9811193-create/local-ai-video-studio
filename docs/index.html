@@ -323,10 +323,10 @@
 
     <div class="terminal">
       <div class="terminal__bar">~/aivideo — termux</div>
-      <div class="terminal__body"><span class="p">$</span> git clone https://github.com/pj9811193-create/local-ai-video-studio.git ~/aivideo
-<span class="p">$</span> cd ~/aivideo <span class="c">&&</span> <span class="g">bash run.sh</span>
-<span class="k">[auto]</span> installing what's missing <span class="c">... GPU engine, ~2.4 GB, one time</span>
-<span class="k">[auto]</span> no compiling needed - SD-Turbo runs on your GPU via WebGPU
+      <div class="terminal__body"><span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/pj9811193-create/local-ai-video-studio/main/install.sh <span class="c">|</span> <span class="g">bash</span>
+<span class="k">[1/3]</span> installing base packages <span class="c">... done</span>
+<span class="k">[2/3]</span> downloading LocalAI Video Studio <span class="c">... done</span>
+<span class="k">[3/3]</span> GPU engine, ~2.4 GB, one time <span class="c">... no compiling needed</span>
 <span class="ok">done — the internet is no longer needed.</span>
 <span class="p">$</span> <span class="c">▸ type a prompt → generate → save MP4 to gallery</span></div>
     </div>
@@ -391,32 +391,23 @@
 
   <section id="install">
     <div class="section-label section-label--amber">install</div>
-    <h2>Three commands, one time.</h2>
+    <h2>Two steps, one time.</h2>
     <div class="step-list">
       <div class="step">
         <h3>Install Termux (from F-Droid, not Play Store)</h3>
         <p>Termux is the terminal that lets the AI engine run on Android. The Play Store version is outdated and broken — get it from <a href="https://f-droid.org/packages/com.termux/" target="_blank" rel="noopener">f-droid.org/packages/com.termux</a>. You'll also need ~4 GB free storage and Wi-Fi for the one-time model download.</p>
       </div>
       <div class="step">
-        <h3>Run one command</h3>
-        <p>That's the whole install. <b>run.sh</b> is self-healing: it installs whatever is missing (packages, GPU engine), then starts the app and opens your browser. First run downloads ~2.4 GB, once.</p>
+        <h3>Paste one command</h3>
+        <p>That's the whole install. It installs the packages, downloads the app, sets up the GPU engine (~2.4 GB, one time) and starts the studio in your browser.</p>
         <div class="code-file">
           <div class="code-file__header"><span>termux</span><button class="copy-btn" type="button">copy</button></div>
-          <div class="code-file__body"><span class="g">git clone</span> https://github.com/pj9811193-create/local-ai-video-studio.git ~/aivideo
-<span class="g">cd</span> ~/aivideo <span class="c">&&</span> <span class="g">bash</span> run.sh</div>
-        </div>
-      </div>
-      <div class="step">
-        <h3>Prefer the CPU engine?</h3>
-        <p>If your browser lacks WebGPU, use the always-works CPU engine (compiles stable-diffusion.cpp, ~10–30 min):</p>
-        <div class="code-file">
-          <div class="code-file__header"><span>termux</span><button class="copy-btn" type="button">copy</button></div>
-          <div class="code-file__body">ENGINE=cpu <span class="g">bash</span> run.sh</div>
+          <div class="code-file__body">curl -fsSL https://raw.githubusercontent.com/pj9811193-create/local-ai-video-studio/main/install.sh <span class="c">|</span> <span class="g">bash</span></div>
         </div>
       </div>
     </div>
     <div class="callout callout--green">
-      <b>Interrupted setup?</b> Downloads resume — just run <b>bash setup.sh</b> again. No model yet? The app runs in <b>demo mode</b> so you can test the whole video pipeline instantly.
+      <b>Browser without WebGPU?</b> Use the always-works CPU engine instead: <b>ENGINE=cpu bash ~/aivideo/run.sh</b> (compiles stable-diffusion.cpp, ~10–30 min). And re-pasting the install command simply updates everything — downloads resume if interrupted.
     </div>
   </section>
 
