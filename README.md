@@ -28,20 +28,23 @@ The app auto-picks the best available engine and falls back gracefully
 ## Install & run — one command
 
 Install **Termux from F-Droid** (https://f-droid.org/packages/com.termux/,
-NOT the Play Store), then:
+NOT the Play Store), open it, and paste this single line:
 
 ```bash
-git clone https://github.com/pj9811193-create/local-ai-video-studio.git ~/aivideo
-cd ~/aivideo && bash run.sh
+curl -fsSL https://raw.githubusercontent.com/pj9811193-create/local-ai-video-studio/main/install.sh | bash
 ```
 
-`run.sh` is **self-healing**: it installs whatever is missing (packages,
-models) and then starts the app — first run downloads the GPU engine
-(~2.4 GB, one time). The browser opens at http://localhost:8080 and you
-can disconnect from the internet forever.
+That's it. It installs the packages, downloads the app, sets up the GPU
+engine (~2.4 GB, one time) and starts the studio in your browser.
 
 To choose the CPU engine instead: `ENGINE=cpu bash run.sh`
 (adds compiling + a ~2.3 GB model; also auto-picks Q4/Q8 by your RAM).
+
+After install, this is the only command you ever need again:
+
+```bash
+bash ~/aivideo/run.sh
+```
 
 Everything is automated — no questions asked. Optional knobs:
 
