@@ -47,7 +47,7 @@
   .row > div { flex: 1; }
 
   .slider-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; }
-  .val { color: var(--accent2); font-weight: 700; font-size: 13.5px; }
+  .val { color: var(--accent2); font-weight: 700; font-size:  13.5px; }
   input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); height: 26px; }
 
   .btn {
@@ -150,6 +150,21 @@
     </div>
   </div>
 
+  <div class="row" style="margin-top:14px">
+    <div>
+      <label for="engine">Engine</label>
+      <select id="engine">
+        <option value="auto" selected>Auto (GPU if available)</option>
+        <option value="webgpu">GPU · WebGPU (fast)</option>
+        <option value="cpu">CPU · on-device AI</option>
+      </select>
+    </div>
+    <div>
+      <label for="neg">Negative prompt</label>
+      <input type="text" id="neg" value="blurry, low quality, watermark, text">
+    </div>
+  </div>
+
   <div class="slider-row">
     <label style="margin:0">Scene variety (changes the shot each scene)</label>
     <span class="val" id="evoVal">on</span>
@@ -186,28 +201,47 @@
   <details>
     <summary>⚙ Advanced</summary>
     <div style="margin-top:12px">
-      <label for="neg">Negative prompt (ignored by Turbo models)</label>
-      <input type="text" id="neg" value="blurry, low quality, watermark, text">
-      <p class="hint">On a low-end phone each AI image can take several minutes.
-      Start with 3–4 scenes at 320 or 384 resolution, keep the phone plugged in,
-      and stay on this page while it works.</p>
+      <p class="hint">On a low-end phone each CPU AI image can take several minutes.
+      The GPU (WebGPU) engine needs Chrome 121+ and a decent GPU — it is much faster.
+      Start with 3–4 scenes, keep the phone plugged in, and stay on this page while it works.</p>
     </div>
   </details>
 </div>
 
+<script src="/webgpu-engine.js" onerror="window.__noEngine=true"></script>
 <script>
-let jobId = null, pollTimer = null;
+let jobId = null, pollTimer = null, serverStatus = null;
+let gpuEngine = null;   // lazily created SDTurboWebGPU
+
+const SHOTS = [
+  "wide establishing shot",
+  "medium shot",
+  "close-up detail shot",
+  "different angle, dramatic lighting",
+  "golden hour lighting",
+  "slightly different composition",
+];
 
 const $ = id => document.getElementById(id);
 
 async function loadStatus() {
   try {
     const r = await fetch('/api/status');
-    const s = await r.json();
+    serverStatus = await r.json();
     const b = $('modeBadge');
-    if (s.ai_mode) { b.textContent = 'AI ready · ' + s.model; b.className = 'badge'; }
-    else if (!s.sd_bin) { b.textContent = 'demo mode · engine not built'; b.className='badge demo'; }
+    const gpuOK = serverStatus.webgpu_files && !!navigator.gpu;
+    if (gpuOK) { b.textContent = 'GPU ready · SD-Turbo'; b.className = 'badge'; }
+    else if (serverStatus.ai_mode) { b.textContent = 'CPU ready · ' + serverStatus.model; b.className = 'badge'; }
+    else if (!serverStatus.sd_bin) { b.textContent = 'demo mode · engine not built'; b.className='badge demo'; }
     else { b.textContent = 'demo mode · no AI model yet'; b.className = 'badge demo'; }
+    const eng = $('engine');
+    eng.querySelector('[value=webgpu]').disabled = !serverStatus.webgpu_files;
+    if (serverStatus.webgpu_files && !navigator.gpu) {
+      eng.querySelector('[value=webgpu]').textContent = 'GPU · WebGPU (browser lacks WebGPU)';
+    }
+    if (!serverStatus.webgpu_files) {
+      eng.querySelector('[value=webgpu]').textContent = 'GPU · not downloaded (re-run setup)';
+    }
   } catch (e) {
     $('modeBadge').textContent = 'server offline';
     $('modeBadge').className = 'badge err';
@@ -252,14 +286,71 @@ async function generate() {
         resolution: parseInt($('res').value),
         motion: $('motion').value,
         evolution: $('evo').value == 1,
+        engine: $('engine').value,
       })
     });
     const d = await r.json();
     if (!r.ok) { fail(d.error || 'could not start'); return; }
     jobId = d.job_id;
+    if (d.engine === 'webgpu') {
+      await runWebGPUJob(d.job_id);
+    }
     poll();
     pollTimer = setInterval(poll, 1500);
-  } catch (e) { fail('could not reach the server: ' + e); }
+  } catch (e) {
+    if (!e || !e.handled) fail('could not reach the server: ' + e);
+  }
+}
+
+/* ---------------- GPU (WebGPU) path ---------------- */
+async function runWebGPUJob(jid) {
+  const prompt = $('prompt').value.trim();
+  const frames = parseInt($('frames').value);
+  const evolution = $('evo').value == 1;
+  try {
+    if (!gpuEngine) {
+      gpuEngine = new SDTurboWebGPU();
+      // load onnxruntime-web served by our local server (no CDN needed)
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = '/webgpu/vendor/ort.webgpu.min.js';
+        s.onload = res;
+        s.onerror = () => rej(new Error('could not load onnxruntime-web (re-run setup)'));
+        document.head.appendChild(s);
+      });
+      await gpuEngine.init(m => { setStage('GPU: ' + m); });
+    }
+    for (let i = 0; i < frames; i++) {
+      setStage('GPU: painting keyframe ' + (i + 1) + ' of ' + frames);
+      let p = prompt;
+      if (evolution) p += ', ' + SHOTS[i % SHOTS.length];
+      const canvas = await gpuEngine.generate(p, m => setStage('GPU: ' + m));
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const up = await fetch('/api/upload_frame/' + jid, {
+        method: 'POST',
+        headers: { 'X-Frame-Index': String(i), 'Content-Type': 'image/png' },
+        body: blob,
+      });
+      if (!up.ok) throw new Error('upload failed (' + up.status + ')');
+      addThumb(URL.createObjectURL(blob));
+    }
+    setStage('GPU done - rendering video…');
+  } catch (e) {
+    // abort the server-side job so it doesn't wait for frames
+    fetch('/api/abort/' + jid, { method: 'POST' }).catch(() => {});
+    clearInterval(pollTimer);
+    fail('GPU engine failed: ' + e + '\n\nTip: switch Engine to CPU or Auto, or update Chrome.');
+    throw { handled: true }; // already reported - do not overwrite
+  }
+}
+
+function setStage(t) { $('stageTxt').textContent = t; }
+let thumbCount = 0;
+function addThumb(url) {
+  const img = document.createElement('img');
+  img.src = url;
+  $('thumbs').appendChild(img);
+  thumbCount++;
 }
 
 async function poll() {
@@ -268,9 +359,9 @@ async function poll() {
     const r = await fetch('/api/job/' + jobId);
     const j = await r.json();
     $('barFill').style.width = j.progress + '%';
-    $('stageTxt').textContent = j.stage + ' · ' + Math.round(j.elapsed) + 's';
+    if (!j.stage.startsWith('GPU')) $('stageTxt').textContent = j.stage + ' · ' + Math.round(j.elapsed) + 's';
     const t = $('thumbs');
-    if (j.thumbs.length > t.children.length) {
+    if (j.thumbs.length > Math.max(t.children.length - thumbCount, 0) && thumbCount === 0) {
       t.innerHTML = j.thumbs.map(u => `<img src="${u}?t=${Date.now()}">`).join('');
     }
     if (j.status === 'done') {
